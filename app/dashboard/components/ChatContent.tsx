@@ -195,43 +195,91 @@ export const ChatContent = () => {
   /* =========================================================================
  =========================================================================*/
   // --- AUTOMATIC LOAN MESSAGE HANDLER ---
+  // useEffect(() => {
+  //   const sendPendingMessage = async () => {
+  //     // 1. Check if there is a message and if user/socket are ready
+  //     const pendingMessage = localStorage.getItem("pending_loan_message");
+
+  //     if (pendingMessage && user && isConnected && user?._id) {
+  //       try {
+  //         setIsSending(true);
+
+  //         const messageData: any = {
+  //           text: pendingMessage,
+  //           senderType: "user",
+  //           email: user.email,
+  //           userId: user._id,
+  //         };
+
+  //         // LOGIC: Ensure we have at least one valid ID to satisfy the backend
+  //         // Use loanId if available, otherwise fallback to userId
+  //         if (loanId) {
+  //           messageData.applicationId = loanId;
+  //         } else if (user._id) {
+  //           messageData.userId = user._id;
+  //         } else {
+  //           return; // Exit if for some reason IDs are still missing
+  //         }
+
+  //         // 2. Send the message to the API
+  //         await chatAPI.sendMessage(messageData);
+
+  //         // 3. Clear from localStorage so it doesn't send again on refresh
+  //         localStorage.removeItem("pending_loan_message");
+  //         // localStorage.removeItem("pending_loan_data");
+  //         // localStorage.removeItem("loan_calculation");
+
+  //         // // 4. Refresh the UI
+  //         // await refreshMessages();
+
+  //         // Give the backend 500ms to index the message before refreshing
+  //         setTimeout(async () => {
+  //           await refreshMessages();
+  //         }, 500);
+
+  //         toast.success("Loan details shared with admin");
+  //       } catch (error) {
+  //         console.error("Failed to auto-send loan message:", error);
+  //       } finally {
+  //         setIsSending(false);
+  //       }
+  //     }
+  //   };
+
+  //   // Only run when connection is established
+  //   if (isConnected && user?._id) {
+  //     sendPendingMessage();
+  //   }
+  // }, [isConnected, user?._id, loanId]);
+
+  // --- AUTOMATIC LOAN MESSAGE HANDLER ---
   useEffect(() => {
     const sendPendingMessage = async () => {
-      // 1. Check if there is a message and if user/socket are ready
       const pendingMessage = localStorage.getItem("pending_loan_message");
 
-      if (pendingMessage && user && isConnected && user?._id) {
+      // Ensure we have the user and the ID before proceeding
+      if (pendingMessage && user?._id && isConnected) {
+        localStorage.removeItem("pending_loan_message");
+
         try {
           setIsSending(true);
 
+          // Construct the object properly BEFORE sending
           const messageData: any = {
             text: pendingMessage,
             senderType: "user",
             email: user.email,
+            userId: user._id, // Set this explicitly here
           };
 
-          // LOGIC: Ensure we have at least one valid ID to satisfy the backend
-          // Use loanId if available, otherwise fallback to userId
+          // Add loanId if it exists
           if (loanId) {
             messageData.applicationId = loanId;
-          } else if (user._id) {
-            messageData.userId = user._id;
-          } else {
-            return; // Exit if for some reason IDs are still missing
           }
 
-          // 2. Send the message to the API
+          // NOW send the data
           await chatAPI.sendMessage(messageData);
 
-          // 3. Clear from localStorage so it doesn't send again on refresh
-          localStorage.removeItem("pending_loan_message");
-          // localStorage.removeItem("pending_loan_data");
-          // localStorage.removeItem("loan_calculation");
-
-          // // 4. Refresh the UI
-          // await refreshMessages();
-
-          // Give the backend 500ms to index the message before refreshing
           setTimeout(async () => {
             await refreshMessages();
           }, 500);
@@ -239,17 +287,17 @@ export const ChatContent = () => {
           toast.success("Loan details shared with admin");
         } catch (error) {
           console.error("Failed to auto-send loan message:", error);
+          toast.error("Could not sync loan details");
         } finally {
           setIsSending(false);
         }
       }
     };
 
-    // Only run when connection is established
     if (isConnected && user?._id) {
       sendPendingMessage();
     }
-  }, [isConnected, user?._id, loanId]);
+  }, [isConnected, user?._id, loanId, user]);
   /* =========================================================================
  =========================================================================*/
 
@@ -295,6 +343,7 @@ export const ChatContent = () => {
         text: newMessage,
         senderType: "user",
         email: user.email,
+        userId: user._id,
       };
 
       if (loanId) messageData.applicationId = loanId;
