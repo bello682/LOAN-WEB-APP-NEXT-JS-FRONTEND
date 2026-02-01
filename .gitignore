@@ -1,0 +1,36 @@
+# 1. Dependencies - npm install restores these
+node_modules/
+/node_modules
+.pnp.*
+
+# 2. Next.js Build Output - DO NOT PUSH THESE
+# These are generated fresh every time you run 'npm run build'
+/.next/
+/out/
+/build
+dist/
+
+# 3. Environment Variables - VITAL SECURITY
+# npm install DOES NOT restore these. You must copy them manually.
+.env
+.env*.local
+.env.production
+.env.development
+
+# 4. Debug & Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+logs/
+*.log
+
+# 5. System & IDE Files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# 6. TypeScript
+next-env.d.ts
+*.tsbuildinfo
