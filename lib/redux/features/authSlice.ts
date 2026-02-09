@@ -34,7 +34,13 @@ export const registerUser = createAsyncThunk(
 				localStorage.setItem("token", response.data.token);
 				if (response.data.user) {
 					localStorage.setItem("user_info", JSON.stringify(response.data.user));
-					localStorage.setItem("user_session", JSON.stringify({ userId: response.data.user._id, email: response.data.user.email }));
+					localStorage.setItem(
+						"user_session",
+						JSON.stringify({
+							userId: response.data.user._id,
+							email: response.data.user.email,
+						}),
+					);
 				}
 			}
 			return response.data;
@@ -55,7 +61,13 @@ export const loginUser = createAsyncThunk(
 				localStorage.setItem("token", response.data.token);
 				if (response.data.user) {
 					localStorage.setItem("user_info", JSON.stringify(response.data.user));
-					localStorage.setItem("user_session", JSON.stringify({ userId: response.data.user._id, email: response.data.user.email }));
+					localStorage.setItem(
+						"user_session",
+						JSON.stringify({
+							userId: response.data.user._id,
+							email: response.data.user.email,
+						}),
+					);
 				}
 			}
 			return response.data;
@@ -69,10 +81,7 @@ export const loginUser = createAsyncThunk(
 
 export const verifyOTP = createAsyncThunk(
 	"auth/verifyOTP",
-	async (
-		otpData: { email: string; otp: string },
-		{ rejectWithValue },
-	) => {
+	async (otpData: { email: string; otp: string }, { rejectWithValue }) => {
 		try {
 			const response = await authAPI.verifyOtp(otpData);
 			return response.data;
@@ -126,12 +135,12 @@ export const resetPassword = createAsyncThunk(
 );
 
 export const getMe = createAsyncThunk("auth/getMe", async (_, thunkAPI) => {
-    try {
-        const response = await authAPI.getCurrentUser(); // You'll need to create this endpoint
-        return response.data; 
-    } catch (error: any) {
-        return thunkAPI.rejectWithValue("Session expired");
-    }
+	try {
+		const response = await authAPI.getCurrentUser(); // You'll need to create this endpoint
+		return response.data;
+	} catch (error: any) {
+		return thunkAPI.rejectWithValue("Session expired");
+	}
 });
 
 const authSlice = createSlice({
@@ -242,9 +251,9 @@ const authSlice = createSlice({
 			})
 
 			.addCase(getMe.fulfilled, (state, action) => {
-	state.user = (action.payload.data || action.payload) as User;
-    state.isLoading = false;
-})
+				state.user = (action.payload.data || action.payload) as User;
+				state.isLoading = false;
+			});
 	},
 });
 
