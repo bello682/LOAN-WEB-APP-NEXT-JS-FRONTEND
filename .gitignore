@@ -13,7 +13,7 @@ dist/
 # 3. Environment Variables - VITAL SECURITY
 # npm install DOES NOT restore these. You must copy them manually.
 .env
-.env*.local
+# .env*.local
 .env.production
 .env.development
 
