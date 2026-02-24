@@ -84,24 +84,6 @@ function CalculatorContent() {
     maximumFractionDigits: 2,
   });
 
-  // --- CHAT PREPARATION ---
-  //   const handleProceedToChat = () => {
-  //     const loanDetails = {
-  //       amount: loanAmount,
-  //       interest: totalInterestNum,
-  //       upfront: upfrontPaymentNum,
-  //       monthly: monthlyPaymentNum,
-  //       term: loanTerm * 12,
-  //     };
-
-  //     // Save the data so the chat page can "see" it
-  //     localStorage.setItem("pending_loan_message", JSON.stringify(loanDetails));
-
-  //     // Encode data securely
-  //     const encodedData = btoa(JSON.stringify(loanDetails));
-  //     router.push(`/chat?details=${encodedData}`);
-  //   };
-
   /* =========================================================================
  =========================================================================*/
 
@@ -210,6 +192,19 @@ function CalculatorContent() {
                   </span>{" "}
                   upfront deposit, please connect with an admin.
                 </p>
+
+                {/* ADDED NOTE SECTION */}
+                <div className="bg-amber-50 border border-amber-100 rounded-2xl p-4 mb-8">
+                  <p className="text-[11px] md:text-xs text-amber-800 font-medium leading-tight">
+                    <span className="font-black uppercase block mb-1 tracking-wider text-amber-900">
+                      Important Note:
+                    </span>
+                    Your loan has NOT been officially applied for yet. You must
+                    chat with our admin or agent below to discuss your
+                    application and receive further instructions.
+                  </p>
+                </div>
+
                 <div className="space-y-4">
                   <Button
                     onClick={handleProceedToChat}

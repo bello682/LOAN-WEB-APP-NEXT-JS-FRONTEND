@@ -9,8 +9,7 @@ import {
   TrendingUp,
   BarChart3,
   ArrowUpRight,
-  ChevronRight,
-  Clock, // Added for status
+  Clock,
 } from "lucide-react";
 import { loanAPI } from "@/lib/api";
 import { useAppSelector } from "@/lib/redux/hooks";
@@ -23,68 +22,151 @@ interface OverviewProps {
 export const OverviewContent = ({ setActiveTab }: OverviewProps) => {
   const { user } = useAppSelector((state) => state.auth);
   const [userLoans, setUserLoans] = useState<any[]>([]);
-  const [pendingLoan, setPendingLoan] = useState<any>(null); // Track pending apps
+  const [pendingLoan, setPendingLoan] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [stats, setStats] = useState<any[]>([]);
 
   useEffect(() => {
     const fetchOverviewData = async () => {
+      // 1. If user isn't loaded from Redux yet, just exit this function.
+      // The JSX return for "no user" is handled below the useEffect.
+      if (!user) return;
+
       try {
         setIsLoading(true);
         const response = await loanAPI.getMyLoans();
-        const loans = Array.isArray(response.data)
-          ? response.data
-          : response.data?.loans || [];
 
-        setUserLoans(loans);
+        // Extracting data safely from your API structure
+        const loansData = response.data?.loans || [];
+        const globalStatsData = response.data?.stats || {
+          totalActiveDebt: 0,
+          totalLoans: 0,
+        };
 
-        // Logic: Find the most recent loan that isn't active to show in the tracker
-        const pending = loans.find((l: any) => l.status !== "active");
-        if (pending) {
-          // Fetch deeper details for the tracker
-          const statusRes = await loanAPI.getApplicationStatus(pending._id);
-          setPendingLoan(statusRes.data);
+        // Update basic loans list
+        setUserLoans(loansData);
+
+        // 2. FIND the most recent pending application for the Tracker
+        const mostRecentPending = [...loansData]
+          .sort(
+            (a, b) =>
+              new Date(b.date_applied).getTime() -
+              new Date(a.date_applied).getTime(),
+          )
+          .find((l: any) => l.status === "pending");
+
+        if (mostRecentPending) {
+          setPendingLoan(mostRecentPending);
         }
 
-        const totalBorrowed = loans.reduce(
-          (sum: number, loan: any) => sum + (Number(loan.amount) || 0),
+        // 3. LOGGING (Using local variables to avoid "stale" state logs)
+        console.log("Actual Loans from API:", loansData);
+        console.log("Actual Stats from API:", globalStatsData);
+
+        // 4. CALCULATE stats based on the data we just fetched
+        // --- 1. CALCULATIONS ---
+        const totalBorrowed = loansData.reduce(
+          (sum: number, l: any) => sum + (Number(l.amount) || 0),
           0,
         );
-        const activeCount = loans.filter(
+
+        // Sum of all Upfront Fees
+        const totalUpfrontFees = loansData.reduce(
+          (sum: number, l: any) => sum + (Number(l.upfrontFee) || 0),
+          0,
+        );
+
+        // Sum of Total Interest across all loans
+        const totalInterest = loansData.reduce(
+          (sum: number, l: any) => sum + (Number(l.totalInterest) || 0),
+          0,
+        );
+
+        // Total amount user is expected to pay back (Principal + Interest)
+        const totalPayable = loansData.reduce(
+          (sum: number, l: any) => sum + (Number(l.totalRepayment) || 0),
+          0,
+        );
+
+        // Actual amount paid back (based on repaymentProgress percentage)
+        const totalRepaidSoFar = loansData.reduce((sum: number, l: any) => {
+          const total = Number(l.totalRepayment) || 0;
+          const progress = Number(l.repaymentProgress) || 0;
+          return sum + total * (progress / 100);
+        }, 0);
+
+        const activeCount = loansData.filter(
           (l: any) => l.status === "active",
         ).length;
+        const processingCount = loansData.filter(
+          (l: any) => l.status === "pending",
+        ).length;
+        const currentDebt = globalStatsData.totalActiveDebt || 0;
 
+        // --- 2. SETTING STATS ---
         setStats([
           {
-            label: "Total Borrowed",
+            label: "Total Principal",
             value: `$${totalBorrowed.toLocaleString()}`,
             icon: Wallet,
             color: "text-blue-600",
             bg: "bg-blue-50",
-            change: "+12%",
+            change: `Apps: ${loansData.length}`,
           },
           {
-            label: "Active Loans",
-            value: activeCount.toString(),
-            icon: Target,
-            color: "text-purple-600",
-            bg: "bg-purple-50",
-            change: "Current",
+            label: "Upfront Fees",
+            value: `$${totalUpfrontFees.toLocaleString()}`,
+            icon: ArrowUpRight,
+            color: "text-orange-600",
+            bg: "bg-orange-50",
+            change: "Total Due",
           },
           {
-            label: "Amount Repaid",
-            value: "$0",
+            label: "Total Interest",
+            value: `$${totalInterest.toLocaleString()}`,
             icon: TrendingUp,
-            color: "text-green-600",
-            bg: "bg-green-50",
-            change: "On Track",
+            color: "text-red-600",
+            bg: "bg-red-50",
+            change: "Projected",
+          },
+          {
+            label: "Repaid to Date",
+            value: `$${totalRepaidSoFar.toLocaleString()}`,
+            icon: Target,
+            color: "text-emerald-600",
+            bg: "bg-emerald-50",
+            change: "Verified",
+          },
+          {
+            label: "Total Payable",
+            value: `$${totalPayable.toLocaleString()}`,
+            icon: BarChart3,
+            color: "text-indigo-600",
+            bg: "bg-indigo-50",
+            change: "Incl. Interest",
+          },
+          {
+            label: "Active Debt",
+            value: `$${currentDebt.toLocaleString()}`,
+            icon: Wallet,
+            color: "text-rose-600",
+            bg: "bg-rose-50",
+            change: activeCount > 0 ? "In Repayment" : "No Active",
+          },
+          {
+            label: "Pending Apps",
+            value: processingCount.toString(),
+            icon: Clock,
+            color: "text-amber-600",
+            bg: "bg-amber-50",
+            change: "Processing",
           },
           {
             label: "Credit Score",
-            value: (user as any)?.creditScore?.toString() || "N/A",
+            value: user?.creditScore?.toString() || "0",
             icon: BarChart3,
-            color: "text-amber-600",
-            bg: "bg-amber-50",
+            color: "text-purple-600",
+            bg: "bg-purple-50",
             change: "Live",
           },
         ]);
@@ -99,22 +181,71 @@ export const OverviewContent = ({ setActiveTab }: OverviewProps) => {
     fetchOverviewData();
   }, [user]);
 
-  if (isLoading) {
+  // --- RENDER LOGIC ---
+
+  // 1. Loading User from Redux
+  if (!user) {
     return (
-      <div className="flex flex-col gap-6 animate-pulse">
-        <div className="h-32 w-full bg-gray-100 rounded-3xl" />
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-24 bg-gray-100 rounded-2xl" />
-          ))}
+      <div className="flex flex-col items-center justify-center min-h-[70vh] gap-8 p-4">
+        {/* The Rolling Spinner and Text in the very middle */}
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 border-4 border-[#002D62] border-t-[#EBB04D] rounded-full animate-spin" />
+          <div className="text-center">
+            <p className="font-black text-[#002D62] uppercase tracking-[0.2em] text-sm animate-pulse">
+              Syncing Account Data
+            </p>
+            <p className="text-gray-400 text-[10px] font-medium mt-1">
+              Please wait while we verify your credentials...
+            </p>
+          </div>
+        </div>
+
+        {/* Faded skeletons in the background to show context */}
+        <div className="w-full max-w-5xl opacity-20 pointer-events-none">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="h-24 bg-gray-200 rounded-2xl" />
+            ))}
+          </div>
         </div>
       </div>
     );
   }
 
+  // 2. Loading API Data (Matches the 8-stat layout)
+  if (isLoading) {
+    return (
+      <div className="relative min-h-[60vh] flex flex-col gap-8 p-4">
+        {/* 1. The Rolling Icon Overlay - Positioned in the middle of the stats area */}
+        <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-white/40 backdrop-blur-[2px]">
+          <div className="w-12 h-12 border-4 border-[#002D62] border-t-[#EBB04D] rounded-full animate-spin" />
+          <p className="mt-4 font-black text-[#002D62] uppercase tracking-widest text-[10px] animate-bounce">
+            Fetching Financials...
+          </p>
+        </div>
+
+        {/* 2. The Skeleton Background (Matches your 8-stat layout) */}
+        <div className="animate-pulse flex flex-col gap-8 opacity-50">
+          {/* Header Skeleton */}
+          <div className="h-10 w-64 bg-gray-200 rounded-lg" />
+
+          {/* Tracker Skeleton */}
+          <div className="h-40 w-full bg-gray-200 rounded-[2rem]" />
+
+          {/* Stats Grid Skeleton (8 Cards) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+              <div key={i} className="h-36 bg-gray-200 rounded-3xl" />
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 3. Main Dashboard UI
   return (
     <div className="space-y-10">
-      {/* Hero Section */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div>
           <h1 className="text-3xl font-black text-[#002D62] uppercase tracking-tighter">
@@ -125,14 +256,13 @@ export const OverviewContent = ({ setActiveTab }: OverviewProps) => {
           </p>
         </div>
         <Button
-          onClick={() => setActiveTab("loans")}
+          onClick={() => setActiveTab("calculator")}
           className="bg-[#002D62] text-white px-8 h-12 rounded-xl flex gap-2 text-xs font-black uppercase tracking-widest hover:bg-[#001f42] transition-all shadow-lg"
         >
           Apply for New Loan <ArrowUpRight size={18} />
         </Button>
       </div>
 
-      {/* NEW: Application Status Tracker (Only shows if a loan is pending) */}
       {pendingLoan && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -148,10 +278,12 @@ export const OverviewContent = ({ setActiveTab }: OverviewProps) => {
                   </span>
                 </div>
                 <h2 className="text-2xl font-black uppercase italic">
-                  {pendingLoan.stepName || "Verification Stage"}
+                  {pendingLoan.status === "pending"
+                    ? "Verification Stage"
+                    : pendingLoan.status}
                 </h2>
                 <p className="text-blue-200 text-xs mt-1">
-                  Loan ID: {pendingLoan._id}
+                  Loan ID: {pendingLoan._id || pendingLoan.loanAccountNumber}
                 </p>
               </div>
               <div className="text-right">
@@ -161,8 +293,6 @@ export const OverviewContent = ({ setActiveTab }: OverviewProps) => {
                 <p className="font-bold">24-48 Hours</p>
               </div>
             </div>
-
-            {/* Visual Progress Steps */}
             <div className="mt-8 flex gap-2">
               {[1, 2, 3, 4].map((step) => (
                 <div
@@ -175,7 +305,6 @@ export const OverviewContent = ({ setActiveTab }: OverviewProps) => {
         </motion.div>
       )}
 
-      {/* Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {stats.map((stat, i) => (
           <Card
@@ -193,12 +322,11 @@ export const OverviewContent = ({ setActiveTab }: OverviewProps) => {
             <p className="text-gray-400 text-[10px] font-black uppercase tracking-widest mb-1">
               {stat.label}
             </p>
-            <p className="text-2xl font-black text-[#002D62]">{stat.value}</p>
+            <p className="text-xl font-black text-[#002D62]">{stat.value}</p>
           </Card>
         ))}
       </div>
 
-      {/* Loan List Section */}
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-black text-[#002D62] uppercase tracking-[0.2em]">
@@ -226,7 +354,6 @@ export const OverviewContent = ({ setActiveTab }: OverviewProps) => {
                 key={loan._id || i}
                 className="p-0 overflow-hidden border-none shadow-sm bg-white group border-l-4 border-l-[#EBB04D]"
               >
-                {/* ... (Your existing Loan Card JSX) ... */}
                 <div className="flex flex-col md:flex-row p-8">
                   <div className="flex-1">
                     <h3 className="text-lg font-black text-[#002D62] uppercase">

@@ -7,14 +7,18 @@ import {
   Search,
   ChevronRight,
   TrendingUp,
-  BellRing,
   MessageCircle,
-  ShieldCheck,
   ShieldAlert,
   Trash2,
   Cpu,
+  Wallet,
+  Landmark,
+  Receipt,
+  Clock,
+  ShieldCheck,
+  Banknote,
+  Percent,
 } from "lucide-react";
-import { Navigation } from "@/app/components";
 import Link from "next/link";
 import { getSocket } from "@/lib/socket";
 import { adminAPI } from "@/lib/api";
@@ -22,22 +26,25 @@ import AdminLayout from "./layout/AdminLayout";
 
 interface DashboardStats {
   totalUsers: number;
+  pendingLoans: number;
   activeLoans: number;
   revenue: number;
   aiManaged: number;
 }
 
-const initialStats: DashboardStats = {
-  totalUsers: 0,
-  activeLoans: 0,
-  revenue: 0,
-  aiManaged: 0,
-};
+// Helper to handle Axios response types safely
+interface AxiosStatResponse {
+  data: {
+    success: boolean;
+    stats: DashboardStats;
+  };
+}
 
 export default function AdminDashboard() {
   const [applications, setApplications] = useState<any[]>([]);
   const [stats, setStats] = useState<DashboardStats>({
     totalUsers: 0,
+    pendingLoans: 0,
     activeLoans: 0,
     revenue: 0,
     aiManaged: 0,
@@ -45,326 +52,271 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const socket = getSocket();
-
-  // Notification & UI State
   const [unreadAppIds, setUnreadAppIds] = useState<string[]>([]);
-  const [showNotification, setShowNotification] = useState({
-    show: false,
-    name: "",
-    email: "",
-  });
-  const [isUpdating, setIsUpdating] = useState<string | null>(null);
   const isFetching = useRef(false);
 
-  // 1. DATA INTEGRATION: Fetching from adminAPI
+  // --- REFINED FINANCIAL CALCULATIONS ---
+
+  // Total Volume of all loans applied for
+  const totalLoanVolume = applications.reduce(
+    (acc, app) => acc + (app.amount || 0),
+    0,
+  );
+
+  // Expected Interest (Profit Margin)
+  const totalExpectedInterest = applications.reduce(
+    (acc, app) => acc + (app.totalInterest || 0),
+    0,
+  );
+
+  // Upfront Fees (Immediate Cashflow)
+  const totalUpfrontFees = applications.reduce(
+    (acc, app) => acc + (app.upfrontFee || 0),
+    0,
+  );
+
+  // Total Paid Back (Calculated from repaymentProgress percentage if available)
+  // Logic: (Progress / 100) * Total Repayment
+  const totalCollectedToDate = applications.reduce((acc, app) => {
+    const progress = app.repaymentProgress || 0;
+    const repayment = app.totalRepayment || 0;
+    return acc + repayment * (progress / 100);
+  }, 0);
+
   const refreshData = async () => {
     if (isFetching.current) return;
     isFetching.current = true;
 
-    // 1. Fetch Loans (The fast one)
-    adminAPI
-      .getAllLoans()
-      .then((loanRes) => {
-        setApplications(loanRes?.loans || loanRes?.data?.loans || []);
-      })
-      .catch((err) => console.error("Loan Fetch Error:", err));
-
-    // 2. Fetch Stats (The slow/failing one)
     try {
-      const statRes = await adminAPI.getDashboardStats();
-      setStats(statRes?.data?.stats || initialStats);
-    } catch (error: any) {
-      if (error.code === "ECONNABORTED") {
-        console.error("Stats request timed out. Check server logs/DB indexes.");
+      // Use "as any" or define the specific Axios return type to bypass the .stats error
+      const [loanRes, statRes]: [any, any] = await Promise.all([
+        adminAPI.getAllLoans(),
+        adminAPI.getDashboardStats(),
+      ]);
+
+      setApplications(loanRes || []);
+
+      // Safe access to stats to avoid the Axios 'status' vs 'stats' confusion
+      const rawStats = statRes?.data?.stats || statRes?.stats;
+      if (rawStats) {
+        setStats(rawStats);
       }
+    } catch (err: any) {
+      console.error("Fetch Error:", err);
     } finally {
       setLoading(false);
       isFetching.current = false;
     }
   };
 
-  // 2. AI MANAGEMENT: Toggle Logic
-  const handleToggleAI = async (loanId: string, currentState: boolean) => {
-    try {
-      setIsUpdating(loanId); // Set loading state for this specific row
-      await adminAPI.toggleLoanAI(loanId, !currentState);
-
-      // Optimistic update or refresh
-      refreshData();
-    } catch (error) {
-      console.error("AI Toggle Error:", error);
-      alert("Failed to update AI status. Please try again.");
-    } finally {
-      setIsUpdating(null); // Clear loading state
-    }
-  };
-
-  // 3. DANGER ZONE: User Deletion
-  const handleDeleteUser = async (userId: string) => {
-    if (confirm("CRITICAL: Delete user completely? This cannot be undone.")) {
-      try {
-        await adminAPI.deleteUserCompletely(userId);
-        refreshData();
-      } catch (error) {
-        alert("Error deleting user");
-      }
-    }
-  };
-
-  // 4. EFFECTS: Socket.io & Polling
   useEffect(() => {
-    setLoading(true);
     refreshData();
-
-    // --- 1. SET UP SOCKETS ---
-    socket.on("new_message", (message: any) => {
-      if (message.senderType === "user") {
-        triggerNotification(message.senderName, message.text);
-        setUnreadAppIds((prev) => [
-          ...new Set([...prev, message.applicationId]),
-        ]);
-
-        // OPTIONAL: Since a message arrived, we know data changed.
-        // You could trigger a refreshData() here to be ultra-responsive.
-      }
-    });
-
-    // --- 2. SET UP SMART POLLING ---
-    let timeoutId: NodeJS.Timeout;
-    const poll = async () => {
-      if (!document.hidden) {
-        await refreshData();
-      }
-      timeoutId = setTimeout(poll, 60000);
-    };
-    timeoutId = setTimeout(poll, 60000);
-
-    // --- 3. CLEANUP EVERYTHING ---
-    return () => {
-      socket.off("new_message");
-      clearTimeout(timeoutId);
-    };
-  }, [socket]); // Keep socket in dependency if the instance can change
-
-  const triggerNotification = (name: string, email: string) => {
-    setShowNotification({ show: true, name, email });
-    const audio = new Audio(
-      "https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3",
-    );
-    audio.play().catch(() => {}); // Catch prevents errors if browser blocks autoplay
-
-    setTimeout(
-      () => setShowNotification({ show: false, name: "", email: "" }),
-      5000,
-    );
-  };
+    const intervalId = setInterval(() => {
+      if (!document.hidden) refreshData();
+    }, 60000);
+    return () => clearInterval(intervalId);
+  }, []);
 
   return (
     <AdminLayout>
-      {/* High-End Notification Toast */}
-      <AnimatePresence>
-        {showNotification.show && (
-          <motion.div
-            initial={{ opacity: 0, x: 100, scale: 0.9 }}
-            animate={{ opacity: 1, x: 0, scale: 1 }}
-            exit={{ opacity: 0, x: 100 }}
-            className="fixed top-24 right-6 z-[999] bg-white border-l-4 border-blue-600 shadow-[0_20px_50px_rgba(0,0,0,0.1)] p-4 rounded-xl flex items-center gap-4 min-w-[350px]"
-          >
-            <div className="bg-blue-600 text-white p-2.5 rounded-lg">
-              <MessageCircle size={20} />
-            </div>
-            <div>
-              <h4 className="font-bold text-sm">{showNotification.name}</h4>
-              <p className="text-xs text-slate-500">New message received</p>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      <div className="pt-10 pb-20 px-6 max-w-7xl mx-auto">
-        {/* Header Section */}
+      <div className="pt-10 pb-20 px-6 max-w-[1600px] mx-auto">
+        {/* Header with quick system status */}
         <div className="mb-10 flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
           <div>
-            <h1 className="text-4xl font-black tracking-tight text-slate-900 mb-2">
-              Systems Overview
+            <h1 className="text-4xl font-black tracking-tight text-slate-900 mb-2 italic uppercase">
+              Terminal <span className="text-blue-600">v3.0</span>
             </h1>
             <p className="text-slate-500 font-medium">
-              Real-time lending surveillance and AI-decision matrix.
+              Monitoring {applications.length} active financial instruments.
             </p>
           </div>
-          <div className="flex gap-2">
-            <div className="px-4 py-2 bg-emerald-50 text-emerald-700 rounded-full text-xs font-bold border border-emerald-100 flex items-center gap-2">
-              <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
-              API Stable
-            </div>
+          <div className="flex items-center gap-3 bg-emerald-50 border border-emerald-100 px-4 py-2 rounded-2xl">
+            <div className="w-2 h-2 bg-emerald-500 rounded-full animate-ping" />
+            <span className="text-[10px] font-black text-emerald-700 uppercase tracking-widest">
+              Real-time Data Flowing
+            </span>
           </div>
         </div>
 
-        {/* PRO-LEVEL METRIC CARDS */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-12">
+        {/* FINANCIAL DATA CENTER - High Value Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <StatCard
-            label="Total Capital"
-            value={`$${stats.revenue.toLocaleString()}`}
-            icon={TrendingUp}
-            trend="+12.5%"
+            label="Gross Portfolio"
+            value={`$${totalLoanVolume.toLocaleString()}`}
+            icon={Landmark}
+            trend="Loan Volume"
+            color="text-blue-600"
           />
           <StatCard
-            label="Active Files"
-            value={stats.activeLoans}
-            icon={Users}
+            label="Total Collected"
+            value={`$${totalCollectedToDate.toLocaleString()}`}
+            icon={Banknote}
+            trend="Repayments"
+            color="text-emerald-600"
           />
           <StatCard
-            label="AI Managed"
-            value={stats.aiManaged}
-            icon={Cpu}
+            label="Projected Revenue"
+            value={`$${totalExpectedInterest.toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
+            icon={Percent}
+            trend="Interest"
             color="text-indigo-600"
           />
           <StatCard
-            label="Alerts"
-            value={unreadAppIds.length}
-            icon={ShieldAlert}
-            color="text-rose-600"
+            label="Upfront Cash"
+            value={`$${totalUpfrontFees.toLocaleString()}`}
+            icon={Receipt}
+            trend="Fee Revenue"
+            color="text-amber-600"
           />
         </div>
 
-        {/* MAIN DATA TABLE */}
-        <div className="bg-white rounded-3xl shadow-[0_0_50px_rgba(0,0,0,0.02)] border border-slate-100 overflow-hidden">
-          <div className="p-8 border-b border-slate-50 flex flex-col md:flex-row justify-between items-center gap-4">
-            <div className="flex items-center gap-4">
-              <h2 className="text-lg font-bold">Loan Management</h2>
-              <span className="bg-slate-100 text-slate-500 px-3 py-1 rounded-full text-[10px] font-bold">
-                LATEST {applications.length} RECORDS
-              </span>
+        {/* OPERATIONAL INSIGHTS */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+          <StatCard
+            label="Pending Review"
+            value={stats.pendingLoans}
+            icon={Clock}
+            trend="Applications"
+            color="text-rose-600"
+          />
+          <StatCard
+            label="AI Risk Managed"
+            value={stats.aiManaged}
+            icon={Cpu}
+            trend="Automation"
+            color="text-violet-600"
+          />
+          <StatCard
+            label="Registered Users"
+            value={stats.totalUsers}
+            icon={Users}
+            trend="Total Base"
+            color="text-slate-600"
+          />
+        </div>
+
+        {/* PORTFOLIO TABLE */}
+        <div className="bg-white rounded-[40px] shadow-2xl shadow-slate-200/50 border border-slate-100 overflow-hidden">
+          <div className="p-8 border-b border-slate-50 flex flex-col md:flex-row justify-between items-center gap-6">
+            <div>
+              <h2 className="text-2xl font-black text-slate-800 tracking-tight">
+                Portfolio Analysis
+              </h2>
+              <p className="text-sm text-slate-400 font-medium">
+                Drill down into individual loan performance.
+              </p>
             </div>
-            <div className="relative w-full md:w-auto">
+            <div className="relative w-full md:w-96">
               <Search
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-                size={16}
+                className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
+                size={18}
               />
               <input
                 type="text"
-                placeholder="Filter by name..."
-                className="pl-10 pr-4 py-2.5 bg-slate-50 border-none rounded-2xl text-sm focus:ring-2 focus:ring-blue-500 w-full md:w-80 transition-all"
+                placeholder="Search ledger..."
+                className="w-full pl-12 pr-4 py-4 bg-slate-50 border-2 border-transparent focus:border-blue-500/20 focus:bg-white rounded-3xl text-sm transition-all"
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
           </div>
 
-          <div
-            className={`overflow-x-auto transition-opacity ${loading ? "opacity-50 pointer-events-none" : "opacity-100"}`}
-          >
-            <table className="w-full text-left">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-separate border-spacing-0">
               <thead>
-                <tr className="bg-slate-50/50 text-[11px] font-bold text-slate-400 uppercase tracking-widest">
-                  <th className="px-8 py-5">Borrower Profile</th>
-                  <th className="px-8 py-5">Financial Details</th>
-                  <th className="px-8 py-5">AI Governance</th>
-                  <th className="px-8 py-5">Status</th>
-                  <th className="px-8 py-5 text-right">Operations</th>
+                <tr className="bg-slate-50/50 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
+                  <th className="px-8 py-6 border-b border-slate-100">
+                    Borrower
+                  </th>
+                  <th className="px-8 py-6 border-b border-slate-100">
+                    Asset Detail
+                  </th>
+                  <th className="px-8 py-6 border-b border-slate-100">
+                    Financials
+                  </th>
+                  <th className="px-8 py-6 border-b border-slate-100">
+                    Repayment
+                  </th>
+                  <th className="px-8 py-6 border-b border-slate-100 text-right">
+                    Action
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
                 {applications
-                  .filter((app) =>
-                    app.userName
-                      ?.toLowerCase()
-                      .includes(searchTerm.toLowerCase()),
+                  .filter(
+                    (app) =>
+                      app.userName
+                        ?.toLowerCase()
+                        .includes(searchTerm.toLowerCase()) ||
+                      app.loanAccountNumber?.includes(searchTerm),
                   )
                   .map((app) => (
                     <tr
                       key={app._id}
-                      className="hover:bg-slate-50/50 transition-all group"
+                      className="hover:bg-blue-50/30 transition-all group"
                     >
                       <td className="px-8 py-6">
                         <div className="flex items-center gap-4">
-                          <div className="relative">
-                            <div className="w-10 h-10 rounded-xl bg-slate-900 text-white flex items-center justify-center font-bold text-xs shadow-lg">
-                              {app.userName?.substring(0, 2).toUpperCase()}
-                            </div>
-                            {unreadAppIds.includes(app._id) && (
-                              <div className="absolute -top-1 -right-1 w-3 h-3 bg-rose-500 border-2 border-white rounded-full" />
-                            )}
+                          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-slate-800 to-slate-900 flex items-center justify-center text-white font-black text-lg shadow-xl shadow-slate-200">
+                            {app.userName?.charAt(0)}
                           </div>
                           <div>
-                            <p className="font-bold text-slate-900">
+                            <p className="font-black text-slate-900 leading-tight">
                               {app.userName}
                             </p>
-                            <p className="text-xs text-slate-400 font-medium">
+                            <p className="text-[11px] text-slate-400 font-bold">
                               {app.userEmail}
                             </p>
                           </div>
                         </div>
                       </td>
                       <td className="px-8 py-6">
-                        <p className="text-sm font-bold text-slate-700">
-                          ${app.amount?.toLocaleString()}
+                        <p className="text-[13px] font-black text-slate-700 uppercase tracking-tighter">
+                          {app.loanAccountNumber}
                         </p>
-                        <p className="text-[10px] text-slate-400 uppercase font-bold tracking-tight">
-                          {app.term} Months / 4.2% APR
-                        </p>
-                      </td>
-                      <td className="px-8 py-6">
-                        <button
-                          onClick={() => handleToggleAI(app._id, app.aiEnabled)}
-                          className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all ${
-                            app.aiEnabled
-                              ? "bg-indigo-50 border-indigo-100 text-indigo-600"
-                              : "bg-slate-50 border-slate-200 text-slate-400"
-                          }`}
-                        >
-                          <Cpu
-                            size={14}
-                            className={app.aiEnabled ? "animate-pulse" : ""}
-                          />
-                          <span className="text-[10px] font-black uppercase">
-                            {app.aiEnabled ? "AI Active" : "Manual"}
-                          </span>
-                        </button>
-                      </td>
-                      <td className="px-8 py-6">
-                        <span
-                          className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
-                            app.status === "approved"
-                              ? "bg-emerald-100 text-emerald-700"
-                              : app.status === "rejected"
-                                ? "bg-rose-100 text-rose-700"
-                                : "bg-amber-100 text-amber-700"
-                          }`}
-                        >
-                          {app.status || "reviewing"}
+                        <span className="text-[9px] px-2 py-0.5 bg-slate-100 text-slate-500 rounded-md font-black uppercase">
+                          {app.loanType}
                         </span>
                       </td>
-                      <td className="px-8 py-6 text-right">
-                        <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button
-                            onClick={() => handleDeleteUser(app.userId)}
-                            className="p-2.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
-                            title="Delete User"
-                          >
-                            <Trash2 size={18} />
-                          </button>
-                          <Link
-                            href={`/admin/chat/${app._id}`}
-                            onClick={() =>
-                              setUnreadAppIds((prev) =>
-                                prev.filter((id) => id !== app._id),
-                              )
-                            }
-                            className="p-2.5 bg-slate-900 text-white rounded-xl hover:bg-blue-600 transition-all shadow-md"
-                          >
-                            <ChevronRight size={18} />
-                          </Link>
+                      <td className="px-8 py-6">
+                        <div className="flex flex-col">
+                          <span className="text-sm font-black text-slate-900">
+                            ${app.amount?.toLocaleString()}
+                          </span>
+                          <span className="text-[10px] text-indigo-600 font-black uppercase tracking-tighter">
+                            Rate: {app.interestRate}%
+                          </span>
                         </div>
+                      </td>
+                      <td className="px-8 py-6">
+                        <div className="w-full max-w-[120px]">
+                          <div className="flex justify-between mb-1">
+                            <span className="text-[9px] font-black text-slate-400 uppercase">
+                              {app.repaymentProgress || 0}% Paid
+                            </span>
+                          </div>
+                          <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+                            <div
+                              className="bg-emerald-500 h-full rounded-full transition-all duration-1000"
+                              style={{
+                                width: `${app.repaymentProgress || 0}%`,
+                              }}
+                            />
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-8 py-6 text-right">
+                        <Link
+                          href={`/admin/chat/${app._id}`}
+                          className="inline-flex items-center justify-center w-12 h-12 bg-white border border-slate-100 text-slate-900 rounded-2xl hover:bg-slate-900 hover:text-white transition-all shadow-sm"
+                        >
+                          <ChevronRight size={20} />
+                        </Link>
                       </td>
                     </tr>
                   ))}
               </tbody>
             </table>
-            {applications.length === 0 && !loading && (
-              <div className="py-20 text-center text-slate-400 text-sm">
-                No loan applications found.
-              </div>
-            )}
           </div>
         </div>
       </div>
@@ -372,30 +324,26 @@ export default function AdminDashboard() {
   );
 }
 
-// Sub-component for clean Stats
-function StatCard({
-  label,
-  value,
-  icon: Icon,
-  color = "text-blue-600",
-  trend,
-}: any) {
+// Sub-component remains similar but with updated shadows
+function StatCard({ label, value, icon: Icon, color, trend }: any) {
   return (
-    <div className="bg-white p-6 rounded-[24px] border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
-      <div className="flex justify-between items-start mb-4">
-        <div className={`p-3 rounded-2xl bg-slate-50 ${color}`}>
-          <Icon size={22} />
+    <div className="bg-white p-7 rounded-[35px] border border-slate-100 shadow-[0_10px_40px_rgba(0,0,0,0.03)] hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
+      <div className="flex justify-between items-start mb-6">
+        <div
+          className={`p-4 rounded-2xl bg-slate-50 ${color} group-hover:scale-110 transition-transform`}
+        >
+          <Icon size={26} />
         </div>
-        {trend && (
-          <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md">
+        <div className="bg-slate-50 px-3 py-1 rounded-full">
+          <span className="text-[9px] font-black text-slate-400 uppercase tracking-[0.1em]">
             {trend}
           </span>
-        )}
+        </div>
       </div>
-      <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mb-1">
+      <p className="text-slate-400 text-[11px] font-black uppercase tracking-widest mb-1">
         {label}
       </p>
-      <p className="text-3xl font-black text-slate-900 tracking-tighter">
+      <p className="text-xl font-black text-slate-900 tracking-tighter">
         {value}
       </p>
     </div>

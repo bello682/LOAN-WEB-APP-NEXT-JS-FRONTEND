@@ -63,19 +63,43 @@ export default function LoginAdmin() {
     }
   }, [isSuccess, error, admin, router]); // Remove dispatch from dependencies to avoid loops
 
+  // const handleSubmit = async (e: React.FormEvent) => {
+  //   e.preventDefault();
+
+  //   const resultAction = await dispatch(loginAdmin({ email, password }));
+
+  //   // Check if it was actually successful in the payload
+  //   if (loginAdmin.fulfilled.match(resultAction)) {
+  //     // Check if the backend actually sent a success status/data
+  //     // This is a safety net in case your Thunk is misconfigured
+  //     if (resultAction.payload?.error) {
+  //       return; // Stop here if there's an error in the payload
+  //     }
+
+  //     if (rememberMe) {
+  //       localStorage.setItem(
+  //         "admin_login_info",
+  //         JSON.stringify({
+  //           savedEmail: email,
+  //           savedCheck: true,
+  //         }),
+  //       );
+  //     } else {
+  //       localStorage.removeItem("admin_login_info");
+  //     }
+  //   }
+  // };
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     const resultAction = await dispatch(loginAdmin({ email, password }));
 
-    // Check if it was actually successful in the payload
     if (loginAdmin.fulfilled.match(resultAction)) {
-      // Check if the backend actually sent a success status/data
-      // This is a safety net in case your Thunk is misconfigured
       if (resultAction.payload?.error) {
-        return; // Stop here if there's an error in the payload
+        return;
       }
 
+      // Your existing Remember Me logic (Unchanged)
       if (rememberMe) {
         localStorage.setItem(
           "admin_login_info",
@@ -87,9 +111,10 @@ export default function LoginAdmin() {
       } else {
         localStorage.removeItem("admin_login_info");
       }
+
+      // The admin_info is now saved inside the Thunk above!
     }
   };
-
   return (
     <AuthLayout
       title="Admin Login"

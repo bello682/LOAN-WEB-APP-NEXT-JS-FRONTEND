@@ -4,9 +4,8 @@ let socket: Socket | null = null;
 
 export const getSocket = () => {
   if (!socket) {
-    // socket = io(process.env.BACKEND_URL || "http://localhost:8001", {
     socket = io(
-      process.env.BACKEND_URL || "http://localhost:8001",
+      process.env.BACKEND_URL || "http://localhost:8046",
       // "https://loan-web-app-node-js-backend.onrender.com",
       {
         transports: ["websocket"],

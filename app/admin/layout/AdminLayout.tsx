@@ -17,69 +17,83 @@ import {
   ChevronLeft,
   ChevronRight,
   X,
+  MessageSquare as ChatIcon,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 
-const AdminLayout = ({ children }: { children: React.ReactNode }) => {
+interface LayoutProps {
+  children: React.ReactNode;
+}
+
+const AdminLayout = ({ children }: LayoutProps) => {
   const { admin, isLoading } = useAppSelector((state) => state.admin);
   const dispatch = useAppDispatch();
   const pathname = usePathname();
-
-  console.log("AdminLayout rendered Admin:", admin);
+  const router = useRouter();
+  const [mounted, setMounted] = useState(false);
 
   // States for toggle
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
 
   const navLinks = [
-    { name: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
+    { name: "Dashboard", href: "/admin/", icon: LayoutDashboard },
     { name: "Manage Loans", href: "/admin/loans", icon: FileText },
     { name: "Users", href: "/admin/users", icon: Users },
+    { name: "Chat", href: "/admin/chat/list", icon: ChatIcon },
   ];
 
   useEffect(() => {
-    // Check if we have a token but no admin state (classic reload scenario)
     const token = localStorage.getItem("adminToken");
-
     if (!admin && token) {
       dispatch(fetchAdminProfile());
     }
   }, [admin, dispatch]);
 
-  if (!admin && isLoading) {
-    return (
-      <div className="h-screen w-full flex items-center justify-center bg-slate-900">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-      </div>
-    );
-  }
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
-  const SidebarContent = () => (
-    <>
+  // console.log("Admin in Layout:", admin);
+
+  // Shared Sidebar UI
+  const SidebarContent = ({ isMobile = false }: { isMobile?: boolean }) => (
+    <div className="flex flex-col h-full">
       {/* Logo Area */}
-      <div
-        className={`p-6 flex items-center justify-between border-b border-slate-800 h-20`}
-      >
-        {(!isCollapsed || isMobileOpen) && (
+      <div className="p-6 flex items-center justify-between border-b border-slate-800 h-20 shrink-0">
+        {(!isCollapsed || isMobile) && (
           <span className="text-xl font-bold tracking-tight text-white whitespace-nowrap">
             Loan<span className="text-blue-400">Admin</span>
           </span>
         )}
-        <button
-          onClick={() => setIsCollapsed(!isCollapsed)}
-          className="hidden md:flex p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-white transition-colors"
-        >
-          {isCollapsed ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
-        </button>
-        <button
-          onClick={() => setIsMobileOpen(false)}
-          className="md:hidden text-slate-400 hover:text-white"
-        >
-          <X size={24} />
-        </button>
+
+        {/* Desktop Collapse Toggle */}
+        {!isMobile && (
+          <button
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            className="hidden md:flex p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-white transition-colors"
+          >
+            {isCollapsed ? (
+              <ChevronRight size={20} />
+            ) : (
+              <ChevronLeft size={20} />
+            )}
+          </button>
+        )}
+
+        {/* Mobile Close Button */}
+        {isMobile && (
+          <button
+            onClick={() => setIsMobileOpen(false)}
+            className="md:hidden text-slate-400 hover:text-white"
+          >
+            <X size={24} />
+          </button>
+        )}
       </div>
 
       {/* Nav Links */}
-      <nav className="flex-1 p-4 space-y-2 overflow-y-auto overflow-x-hidden">
+      <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
         {navLinks.map((link) => {
           const Icon = link.icon;
           const isActive = pathname === link.href;
@@ -87,19 +101,20 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
             <Link
               key={link.href}
               href={link.href}
+              onClick={() => setIsMobileOpen(false)} // Auto-close on mobile click
               className={`flex items-center gap-4 p-3 rounded-xl transition-all duration-200 group ${
                 isActive
                   ? "bg-blue-600 text-white shadow-lg shadow-blue-900/20"
                   : "text-slate-400 hover:bg-slate-800 hover:text-white"
               }`}
-              title={isCollapsed ? link.name : ""}
+              title={isCollapsed && !isMobile ? link.name : ""}
             >
               <Icon
                 size={22}
                 className={`${isActive ? "text-white" : "group-hover:text-blue-400"}`}
               />
-              {(!isCollapsed || isMobileOpen) && (
-                <span className="font-medium whitespace-nowrap transition-opacity duration-300">
+              {(!isCollapsed || isMobile) && (
+                <span className="font-medium whitespace-nowrap">
                   {link.name}
                 </span>
               )}
@@ -111,51 +126,61 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
       {/* Logout Bottom */}
       <div className="p-4 border-t border-slate-800">
         <button
-          onClick={() => dispatch(logoutAdmin())}
-          className={`flex items-center gap-4 w-full p-3 text-rose-400 hover:bg-rose-900/20 rounded-xl transition-colors font-medium group`}
-          title={isCollapsed ? "Logout" : ""}
+          onClick={() => {
+            dispatch(logoutAdmin());
+            router.push("/admin/auth/login-admin");
+          }}
+          className="flex items-center gap-4 w-full p-3 text-rose-400 hover:bg-rose-900/20 rounded-xl transition-colors font-medium group"
         >
           <LogOut size={22} />
-          {(!isCollapsed || isMobileOpen) && (
+          {(!isCollapsed || isMobile) && (
             <span className="whitespace-nowrap">Logout</span>
           )}
         </button>
       </div>
-    </>
+    </div>
   );
 
+  if (!admin && isLoading) {
+    return (
+      <div className="h-screen w-full flex items-center justify-center bg-slate-900">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex h-screen bg-[#F8FAFC]">
-      {/* Mobile Overlay */}
+    <div className="flex h-screen bg-[#F8FAFC] overflow-hidden">
+      {/* 1. Mobile Overlay */}
       {isMobileOpen && (
         <div
-          className="fixed inset-0 bg-black/50 z-40 md:hidden backdrop-blur-sm transition-opacity"
+          className="fixed inset-0 bg-black/60 z-40 md:hidden backdrop-blur-sm transition-opacity duration-300"
           onClick={() => setIsMobileOpen(false)}
         />
       )}
 
-      {/* Sidebar - Desktop */}
+      {/* 2. Sidebar - Desktop */}
       <aside
-        className={`bg-slate-900 text-white hidden md:flex flex-col transition-all duration-300 ease-in-out z-30 ${
+        className={`bg-slate-900 text-white hidden md:flex flex-col transition-all duration-300 ease-in-out z-30 shrink-0 ${
           isCollapsed ? "w-20" : "w-64"
         }`}
       >
         <SidebarContent />
       </aside>
 
-      {/* Sidebar - Mobile */}
+      {/* 3. Sidebar - Mobile (Slide-in Drawer) */}
       <aside
         className={`fixed inset-y-0 left-0 bg-slate-900 text-white flex md:hidden flex-col transition-transform duration-300 z-50 w-72 ${
           isMobileOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <SidebarContent />
+        <SidebarContent isMobile={true} />
       </aside>
 
-      {/* Main Content Area */}
-      <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
+      {/* 4. Main Content Area */}
+      <main className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
         {/* Header */}
-        <header className="h-20 bg-white border-b flex items-center justify-between px-4 md:px-8 shadow-sm z-20">
+        <header className="h-20 bg-white border-b flex items-center justify-between px-4 md:px-8 shadow-sm z-20 shrink-0">
           <div className="flex items-center gap-4">
             <button
               onClick={() => setIsMobileOpen(true)}
@@ -171,21 +196,24 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
           <div className="flex items-center gap-3 md:gap-4 ml-4">
             <div className="text-right hidden sm:block">
               <p className="text-sm font-bold text-slate-900 leading-none">
-                {admin?.name || "Admin"}
+                {mounted ? admin?.name || "Admin" : "Admin"}
               </p>
               <p className="text-[10px] uppercase tracking-tighter text-blue-600 font-bold mt-1">
-                {admin?.role || "Administrator"}
+                {/* 2. Wrap Role */}
+                {mounted ? admin?.role || "Administrator" : "Administrator"}
               </p>
             </div>
+            {/* Around line 206 in AdminLayout.tsx */}
             <div className="h-10 w-10 md:h-11 md:w-11 rounded-xl bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center text-white font-bold shadow-lg shadow-blue-200 border-2 border-white">
-              {admin?.name?.charAt(0).toUpperCase() || "A"}
+              {/* Add the 'mounted' check here */}
+              {mounted ? admin?.name?.charAt(0).toUpperCase() || "A" : "A"}
             </div>
           </div>
         </header>
 
-        {/* Content Section */}
-        <section className="flex-1 overflow-y-auto p-4 md:p-8">
-          <div className="max-w-7xl mx-auto">{children}</div>
+        {/* Page Content Section */}
+        <section className="flex-1 overflow-y-auto p-4 md:p-8 bg-[#F8FAFC]">
+          <div className="max-w-7xl mx-auto h-full">{children}</div>
         </section>
       </main>
     </div>
