@@ -8,8 +8,10 @@
 import axios, { AxiosInstance, AxiosError } from "axios";
 
 // API Base URL - Change based on environment
-const API_BASE_URL = process.env.BACKEND_URL || "http://localhost:8046";
-// "https://loan-web-app-node-js-backend.onrender.com";
+const API_BASE_URL =
+  process.env.BACKEND_URL ||
+  "https://standard-loan-management-system-backend.onrender.com";
+// "http://localhost:8046";
 
 // Create axios instance
 export const apiClient: AxiosInstance = axios.create({
