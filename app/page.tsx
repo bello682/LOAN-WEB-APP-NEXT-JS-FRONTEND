@@ -284,6 +284,11 @@ export default function Home() {
               whileTap={{ scale: 0.95 }}
               className="bg-blue-600 text-white p-4 rounded-2xl shadow-2xl flex items-center gap-3 border border-white/20 min-w-[200px]"
             >
+              {/* NEW AI-POWERED BADGE */}
+              <span className="text-[9px] bg-white/20 px-2 py-0.5 rounded-full font-bold uppercase tracking-widest">
+                AI-Powered
+              </span>
+
               <div className="relative shrink-0">
                 <MessageCircle size={24} />
                 <span className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 border-2 border-blue-600 rounded-full animate-pulse"></span>
@@ -298,6 +303,37 @@ export default function Home() {
           </Link>
         </motion.div>
       ) : (
+        // <motion.div
+        //   drag
+        //   dragConstraints={{ left: -300, right: 0, top: -700, bottom: 0 }}
+        //   className="fixed bottom-8 right-8 z-[60] cursor-grab active:cursor-grabbing"
+        // >
+        //   <Link href="/chat" draggable="false">
+        //     <motion.div
+        //       whileHover={{ scale: 1.05 }}
+        //       whileTap={{ scale: 0.95 }}
+        //       className="bg-blue-600 text-white p-4 rounded-2xl shadow-2xl flex flex-col items-end gap-1 border border-white/20 min-w-[200px]"
+        //     >
+        //       {/* NEW AI-POWERED BADGE */}
+        //       <span className="text-[9px] bg-white/20 px-2 py-0.5 rounded-full font-bold uppercase tracking-widest">
+        //         AI-Powered
+        //       </span>
+
+        //       <div className="flex items-center gap-3 w-full">
+        //         <div className="relative shrink-0">
+        //           <MessageCircle size={24} />
+        //           <span className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 border-2 border-blue-600 rounded-full animate-pulse"></span>
+        //         </div>
+        //         <span className="font-bold text-sm pr-2 whitespace-nowrap">
+        //           {displayText}
+        //           <span className="inline-block w-1 h-4 bg-white/50 ml-1 animate-pulse">
+        //             |
+        //           </span>
+        //         </span>
+        //       </div>
+        //     </motion.div>
+        //   </Link>
+        // </motion.div>
         ""
       )}
 
