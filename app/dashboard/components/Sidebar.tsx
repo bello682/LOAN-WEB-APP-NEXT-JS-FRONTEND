@@ -58,6 +58,8 @@ export const Sidebar = ({ activeTab, setActiveTab }: any) => {
             localStorage.removeItem("token");
             localStorage.removeItem("user_info");
             localStorage.removeItem("dashboard_last_tab");
+            localStorage.removeItem("user_session");
+            localStorage.removeItem("user_loan_id");
             router.push("/login");
           }}
           className="flex items-center gap-3 px-4 py-2 text-sm font-bold text-red-400 hover:text-red-300 w-full"

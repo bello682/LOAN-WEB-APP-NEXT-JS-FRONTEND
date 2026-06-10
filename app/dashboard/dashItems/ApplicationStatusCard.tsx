@@ -9,7 +9,7 @@ export const ApplicationStatusCard = ({ loanId }: { loanId: string }) => {
   useEffect(() => {
     const getDetails = async () => {
       try {
-        const res = await loanAPI.getApplicationStatus(loanId);
+        const res = await loanAPI.getLoanById(loanId);
         setStatusDetails(res.data);
       } catch (err) {
         console.error("Could not fetch status details");

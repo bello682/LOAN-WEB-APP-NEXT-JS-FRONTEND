@@ -5,6 +5,8 @@ import { Bell, ChevronRight, User } from "lucide-react";
 
 interface UserInfo {
   fullName: string;
+  // verified: boolean;
+  status: string;
   // add other fields if you have them, like email: string;
 }
 export const DashboardHeader = ({ activeTab, user }: any) => {
@@ -21,6 +23,8 @@ export const DashboardHeader = ({ activeTab, user }: any) => {
       }
     }
   }, []);
+
+  console.log("Authenticated User:", authUser);
 
   return (
     <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-gray-100 px-4 md:px-8 py-3 md:py-4 flex items-center justify-between transition-all">
@@ -60,7 +64,8 @@ export const DashboardHeader = ({ activeTab, user }: any) => {
               {authUser?.fullName || "Guest User"}
             </p>
             <p className="text-[9px] text-[#EBB04D] font-black tracking-widest">
-              VERIFIED CLIENT
+              {/* VERIFIED CLIENT */}
+              {authUser?.status}
             </p>
           </div>
 

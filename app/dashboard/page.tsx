@@ -16,6 +16,7 @@ import { LoansContent } from "./dashItems/LoansContent";
 import { CalculatorContent } from "./dashItems/CalculatorContent";
 import { NotificationList } from "./dashItems/NotificationList";
 import { HistoryContent } from "./dashItems/HistoryContent";
+import { SettingsContent } from "./components/SettingsContent";
 
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState("overview");
@@ -75,7 +76,8 @@ export default function Dashboard() {
       case "history":
         return <HistoryContent />;
       case "settings":
-        return <PlaceholderView title="Account Settings" />;
+        // return <PlaceholderView title="Account Settings" />;
+        return <SettingsContent />;
       default:
         return <OverviewContent setActiveTab={setActiveTab} />;
     }

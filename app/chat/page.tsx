@@ -188,8 +188,12 @@ export default function ChatPage() {
     newSocket.on("connect", () => {
       setIsConnected(true);
       console.debug("[Socket] Connected", newSocket.id);
+      // if (authType === "registered" && user?._id) {
+      //   newSocket.emit("join_chat", { userId: user._id });
       if (authType === "registered" && user?._id) {
-        newSocket.emit("join_chat", { userId: user._id });
+        newSocket.emit("join-room", {
+          applicationId: loanId || user._id,
+        });
       } else if (authType === "guest" && guestSession?.sessionToken) {
         newSocket.emit("join_guest_chat", {
           sessionToken: guestSession.sessionToken,
@@ -220,6 +224,14 @@ export default function ChatPage() {
       newSocket.disconnect();
     };
   }, [authType, user, guestSession]);
+
+  useEffect(() => {
+    if (!socket || authType !== "registered" || !user?._id) return;
+
+    socket.emit("join-room", {
+      applicationId: loanId || user._id,
+    });
+  }, [socket, authType, user?._id, loanId]);
 
   // Always fetch user loan and chat history
   useEffect(() => {
@@ -256,6 +268,25 @@ export default function ChatPage() {
       })();
     }
   }, [authType, user]);
+
+  useEffect(() => {
+    if (authType !== "guest" || !guestSession?.sessionToken) return;
+
+    (async () => {
+      setIsLoading(true);
+      try {
+        const response = await guestChatAPI.fetchGuestMessages(
+          guestSession.sessionToken,
+        );
+
+        setMessages(Array.isArray(response.data) ? response.data : []);
+      } catch (error) {
+        console.error("Failed to load guest chat history:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    })();
+  }, [authType, guestSession?.sessionToken]);
 
   // Background polling every 3 seconds (does not update UI if messages are unchanged)
   useEffect(() => {
@@ -349,34 +380,91 @@ export default function ChatPage() {
   }, [authType, guestSession?.sessionToken]);
 
   // Handle send message
+  // const handleSendMessage = async (e: React.FormEvent) => {
+  //   e.preventDefault();
+  //   if (!newMessage.trim() || !authType) return;
+
+  //   try {
+  //     setIsSending(true);
+  //     if (authType === "registered" && user) {
+  //       let messageData: any = {
+  //         text: newMessage,
+  //         senderType: "user" as const,
+  //         email: user.email,
+  //       };
+  //       if (loanId) {
+  //         messageData.applicationId = loanId;
+  //       } else {
+  //         messageData.userId = user._id;
+  //       }
+  //       await chatAPI.sendMessage(messageData);
+  //     }
+  //     else if (authType === "guest" && guestSession) {
+  //       const messageData = {
+  //         sessionToken: guestSession.sessionToken,
+  //         text: newMessage,
+  //       };
+  //       await guestChatAPI.sendGuestMessage(messageData);
+  //     }
+
+  //     setNewMessage("");
+  //     // Immediate sync after sending
+  //     await refreshMessages();
+  //   } catch (error: any) {
+  //     toast.error("Failed to send message");
+  //     console.error("Send message error:", error);
+  //   } finally {
+  //     setIsSending(false);
+  //   }
+  // };
+
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newMessage.trim() || !authType) return;
 
     try {
       setIsSending(true);
+
       if (authType === "registered" && user) {
         let messageData: any = {
           text: newMessage,
           senderType: "user" as const,
           email: user.email,
         };
+
         if (loanId) {
           messageData.applicationId = loanId;
         } else {
           messageData.userId = user._id;
         }
+
         await chatAPI.sendMessage(messageData);
       } else if (authType === "guest" && guestSession) {
         const messageData = {
           sessionToken: guestSession.sessionToken,
           text: newMessage,
         };
-        await guestChatAPI.sendGuestMessage(messageData);
+
+        const response = await guestChatAPI.sendGuestMessage(messageData);
+
+        const incomingMessages = [
+          response.data?.userMessage,
+          response.data?.botMessage,
+        ].filter(Boolean);
+
+        if (incomingMessages.length > 0) {
+          setMessages((prev) => {
+            const existingIds = new Set(prev.map((msg) => msg._id));
+            const uniqueIncoming = incomingMessages.filter(
+              (msg) => !existingIds.has(msg._id),
+            );
+
+            return [...prev, ...uniqueIncoming];
+          });
+        }
       }
 
       setNewMessage("");
-      // Immediate sync after sending
       await refreshMessages();
     } catch (error: any) {
       toast.error("Failed to send message");
@@ -394,7 +482,12 @@ export default function ChatPage() {
   };
 
   // Handle guest modal close
+  // const handleGuestModalSuccess = (session: any) => {
+  //   setAuthType("guest");
+  //   setShowGuestModal(false);
+  // };
   const handleGuestModalSuccess = (session: any) => {
+    setMessages(Array.isArray(session?.messages) ? session.messages : []);
     setAuthType("guest");
     setShowGuestModal(false);
   };
@@ -637,7 +730,8 @@ export default function ChatPage() {
                           </p>
                         )}
                         {["ai-bot", "system"].includes(msg.senderType) ? (
-                          <div className="text-[13px] leading-relaxed font-medium break-words prose prose-sm prose-invert max-w-none">
+                          // <div className="text-[13px] leading-relaxed font-medium break-words prose prose-sm prose-invert max-w-none">
+                          <div className="text-[13px] leading-relaxed font-medium break-words prose prose-sm max-w-none">
                             <ReactMarkdown remarkPlugins={[remarkGfm]}>
                               {msg.text || ""}
                             </ReactMarkdown>

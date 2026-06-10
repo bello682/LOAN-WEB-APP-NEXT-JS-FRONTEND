@@ -134,6 +134,7 @@ export const CalculatorContent = ({ setActiveTab }: CalculatorProps) => {
   //   };
 
   const handleProceedToChat = async () => {
+    console.log("User Info at Submission:", user); // Debugging line
     if (!user?._id) {
       toast.error("You must be logged in to apply.");
       return;

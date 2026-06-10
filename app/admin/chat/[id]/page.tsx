@@ -150,7 +150,8 @@ export default function AdminChatDetail() {
   const handleToggleAI = async () => {
     if (!selectedId || togglingAi) return;
 
-    const isGuest = !activeApp?.userId;
+    // const isGuest = !activeApp?.userId;
+    const isGuest = !!activeApp?.isGuest;
     const nextState = !isAiActive;
 
     // 1. Optimistic UI update (Local)
@@ -221,7 +222,14 @@ export default function AdminChatDetail() {
 
     try {
       const formData = new FormData();
-      formData.append("applicationId", selectedId);
+      // formData.append("applicationId", selectedId);
+      if (
+        !activeApp?.isGuest &&
+        activeApp?.loanAccountNumber !== "No Active Loan"
+      ) {
+        formData.append("applicationId", selectedId);
+      }
+
       formData.append("userId", targetUserId);
       formData.append("text", messageText);
       formData.append("senderType", "admin");
