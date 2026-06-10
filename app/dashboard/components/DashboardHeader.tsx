@@ -9,7 +9,15 @@ interface UserInfo {
   status: string;
   // add other fields if you have them, like email: string;
 }
-export const DashboardHeader = ({ activeTab, user }: any) => {
+
+interface OverviewProps {
+  setActiveTab: (tab: string) => void;
+}
+
+export const DashboardHeader = (
+  { setActiveTab }: OverviewProps,
+  { activeTab, user }: any,
+) => {
   const [authUser, setAuthUser] = useState<UserInfo | null>(null);
   useEffect(() => {
     // 2. Safe check for browser environment
@@ -52,7 +60,10 @@ export const DashboardHeader = ({ activeTab, user }: any) => {
       {/* Right Side: Actions & Profile */}
       <div className="flex items-center gap-2 md:gap-4">
         {/* Notification Bell */}
-        <button className="relative p-2 text-gray-400 hover:text-[#002D62] hover:bg-gray-50 rounded-xl transition-all group">
+        <button
+          onClick={() => setActiveTab("notifications")}
+          className="relative p-2 text-gray-400 hover:text-[#002D62] hover:bg-gray-50 rounded-xl transition-all group"
+        >
           <Bell size={20} />
           <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 border-2 border-white rounded-full group-hover:scale-110 transition-transform"></span>
         </button>
