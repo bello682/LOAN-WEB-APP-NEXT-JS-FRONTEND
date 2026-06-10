@@ -10,13 +10,15 @@ interface UserInfo {
   // add other fields if you have them, like email: string;
 }
 
-interface OverviewProps {
+interface DashboardHeaderProps {
   setActiveTab: (tab: string) => void;
+  activeTab: string;
+  user: any; // Update 'any' with your actual User type if possible
 }
 
 export const DashboardHeader = (
-  { setActiveTab }: OverviewProps,
-  { activeTab, user }: any,
+  // { activeTab, user }: any,
+  { setActiveTab, activeTab, user }: DashboardHeaderProps,
 ) => {
   const [authUser, setAuthUser] = useState<UserInfo | null>(null);
   useEffect(() => {

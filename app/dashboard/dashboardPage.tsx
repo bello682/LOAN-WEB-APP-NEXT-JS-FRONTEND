@@ -126,7 +126,11 @@ export default function Dashboard() {
 
       {/* <section className="flex-1 flex flex-col h-screen overflow-hidden pb-20 lg:pb-0"> */}
       <section className="flex-1 flex flex-col h-screen overflow-hidden pb-32 lg:pb-0">
-        <DashboardHeader activeTab={activeTab} user={user} />
+        <DashboardHeader
+          activeTab={activeTab}
+          user={user}
+          setActiveTab={setActiveTab}
+        />
 
         <div className="flex-1 overflow-y-auto p-6 lg:p-12">
           <AnimatePresence mode="wait">
