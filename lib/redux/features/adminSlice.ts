@@ -30,6 +30,7 @@ interface AdminState {
   users: any[];
   loans: any[];
   applications: any[];
+  notifications: any[];
 }
 
 const getInitialAdmin = () => {
@@ -50,6 +51,7 @@ const initialState: AdminState = {
   users: [],
   loans: [],
   applications: [],
+  notifications: [],
 };
 
 // Thunks
@@ -204,6 +206,21 @@ export const logoutAdmin = createAsyncThunk(
   },
 );
 
+export const fetchAdminNotifications = createAsyncThunk(
+  "admin/fetchNotifications",
+  async (_, { rejectWithValue }) => {
+    try {
+      // You will need to add this endpoint to your adminAPI
+      const response = await adminAPI.getNotifications();
+      return response.data.notifications;
+    } catch (error: any) {
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to fetch notifications",
+      );
+    }
+  },
+);
+
 const adminSlice = createSlice({
   name: "admin",
   initialState,
@@ -330,6 +347,19 @@ const adminSlice = createSlice({
     builder.addCase(logoutAdmin.fulfilled, (state) => {
       state.admin = null;
       state.isAuthenticated = false;
+    });
+
+    // Add this inside extraReducers
+    builder.addCase(fetchAdminNotifications.pending, (state) => {
+      state.isLoading = true;
+    });
+    builder.addCase(fetchAdminNotifications.fulfilled, (state, action) => {
+      state.isLoading = false;
+      state.notifications = action.payload;
+    });
+    builder.addCase(fetchAdminNotifications.rejected, (state, action) => {
+      state.isLoading = false;
+      state.error = action.payload as string;
     });
   },
 });

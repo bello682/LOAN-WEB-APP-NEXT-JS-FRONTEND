@@ -11,6 +11,7 @@ import axios, { AxiosInstance, AxiosError } from "axios";
 const API_BASE_URL =
   process.env.BACKEND_URL ||
   "https://standard-loan-management-system-backend.onrender.com";
+
 // "http://localhost:8046";
 
 // Create axios instance
@@ -97,9 +98,9 @@ export const userAPI = {
   getMyLoans: () => apiClient.get("/api/loans/my-loans"),
   getTransaction: (transactionId: string) =>
     apiClient.get(`/api/users/transactions/${transactionId}`),
-  getNotifications: () => apiClient.get("/api/users/notifications"),
+  getNotifications: () => apiClient.get("/api/notifications/my-notifications"),
   markNotificationAsRead: (notificationId: string) =>
-    apiClient.patch(`/api/users/notifications/${notificationId}/read`),
+    apiClient.patch(`/api/notifications/${notificationId}/read`),
 };
 
 // ===========================
@@ -211,6 +212,15 @@ export const adminAPI = {
       throw error;
     }
   },
+  getNotifications: () => apiClient.get("/api/notifications/my-notifications"),
+  sendNotification: (data: {
+    recipientId?: string;
+    guestId?: string;
+    title: string;
+    message: string;
+    category: string;
+    scope: "individual" | "global";
+  }) => apiClient.post("/api/notifications/notify", data),
 };
 
 // ===========================

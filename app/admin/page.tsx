@@ -23,6 +23,8 @@ import Link from "next/link";
 import { getSocket } from "@/lib/socket";
 import { adminAPI } from "@/lib/api";
 import AdminLayout from "./layout/AdminLayout";
+import { useAppDispatch } from "@/lib/redux/hooks";
+import { fetchAdminNotifications } from "@/lib/redux/features/adminSlice";
 
 interface DashboardStats {
   totalUsers: number;
@@ -54,6 +56,7 @@ export default function AdminDashboard() {
   const socket = getSocket();
   const [unreadAppIds, setUnreadAppIds] = useState<string[]>([]);
   const isFetching = useRef(false);
+  const dispatch = useAppDispatch();
 
   // --- REFINED FINANCIAL CALCULATIONS ---
 
@@ -116,6 +119,19 @@ export default function AdminDashboard() {
     }, 60000);
     return () => clearInterval(intervalId);
   }, []);
+
+  // Inside your Admin Dashboard component
+
+  useEffect(() => {
+    dispatch(fetchAdminNotifications());
+
+    const socket = getSocket();
+    socket.on("new_admin_notification", (data) => {
+      // You can add a simple reducer to prepend the new notification to the state
+      // Or just re-fetch
+      dispatch(fetchAdminNotifications());
+    });
+  }, [dispatch]);
 
   return (
     <AdminLayout>

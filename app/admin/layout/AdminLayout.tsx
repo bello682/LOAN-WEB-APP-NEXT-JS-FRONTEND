@@ -18,6 +18,7 @@ import {
   ChevronRight,
   X,
   MessageSquare as ChatIcon,
+  MessageSquare,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -41,6 +42,11 @@ const AdminLayout = ({ children }: LayoutProps) => {
     { name: "Manage Loans", href: "/admin/loans", icon: FileText },
     { name: "Users", href: "/admin/users", icon: Users },
     { name: "Chat", href: "/admin/chat/list", icon: ChatIcon },
+    {
+      name: "Notifications",
+      href: "/admin/notification",
+      icon: MessageSquare,
+    },
   ];
 
   useEffect(() => {
